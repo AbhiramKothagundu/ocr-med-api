@@ -1,0 +1,316 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "OCR Medical Receipt Extraction API",
+    "version": "1.0.0",
+    "description": "API for extracting, normalizing, and classifying amounts from medical receipts using OCR and AI."
+  },
+  "servers": [
+    { "url": "http://localhost:3000/api" }
+  ],
+  "paths": {
+    "/extract": {
+      "post": {
+        "summary": "Extract numeric tokens from image or text",
+        "description": "Extracts numeric tokens (amounts) from an uploaded image or raw text.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Extraction successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExtractResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/normalize": {
+      "post": {
+        "summary": "Normalize extracted tokens",
+        "description": "Normalizes extracted tokens to numeric values.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tokens": { "type": "array", "items": { "type": "string" } },
+                  "currency": { "type": "string", "enum": ["INR", "USD", "EUR", "GBP"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Normalization successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/NormalizeResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/classify": {
+      "post": {
+        "summary": "Classify normalized amounts",
+        "description": "Classifies normalized amounts into types (total, paid, tax, etc.).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "amounts": { "type": "array", "items": { "type": "number" } },
+                  "context": { "type": "string" },
+                  "currency": { "type": "string", "enum": ["INR", "USD", "EUR", "GBP"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Classification successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ClassifyResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/final": {
+      "post": {
+        "summary": "Complete pipeline: extract, normalize, classify",
+        "description": "Runs the full pipeline on image or text input.",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string", "format": "binary" }
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "text": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pipeline successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/FinalResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history": {
+      "get": {
+        "summary": "Get processing history",
+        "description": "Returns paginated history of processed documents.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer" }, "required": false },
+          { "name": "limit", "in": "query", "schema": { "type": "integer" }, "required": false },
+          { "name": "stage", "in": "query", "schema": { "type": "string" }, "required": false }
+        ],
+        "responses": {
+          "200": {
+            "description": "History fetched",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HistoryResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/history/{id}": {
+      "get": {
+        "summary": "Get document by ID",
+        "description": "Returns a processed document by its docId.",
+        "parameters": [
+          { "name": "id", "in": "path", "schema": { "type": "string" }, "required": true }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document fetched",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DocumentResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ExtractResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "docId": { "type": "string" },
+              "inputType": { "type": "string" },
+              "rawText": { "type": "string" },
+              "tokens": { "type": "array", "items": { "type": "string" } },
+              "confidence": { "type": "number" },
+              "currency": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "NormalizeResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "original": { "type": "array", "items": { "type": "string" } },
+              "normalized": { "type": "array", "items": { "type": "number" } },
+              "currency": { "type": "string" },
+              "confidence": { "type": "number" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "ClassifyResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "amounts": { "type": "array", "items": { "type": "number" } },
+              "classified": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": { "type": "number" },
+                    "type": { "type": "string" },
+                    "confidence": { "type": "number" },
+                    "source": { "type": "string" }
+                  }
+                }
+              },
+              "currency": { "type": "string" },
+              "confidence": { "type": "number" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "FinalResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "docId": { "type": "string" },
+              "inputType": { "type": "string" },
+              "currency": { "type": "string" },
+              "amounts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": { "type": "number" },
+                    "type": { "type": "string" },
+                    "confidence": { "type": "number" },
+                    "source": { "type": "string" }
+                  }
+                }
+              },
+              "confidence": { "type": "number" },
+              "provenance": {
+                "type": "object",
+                "properties": {
+                  "source": { "type": "string" },
+                  "extractedTokens": { "type": "array", "items": { "type": "string" } },
+                  "normalizedAmounts": { "type": "array", "items": { "type": "number" } }
+                }
+              },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      },
+      "HistoryResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "results": {
+                "type": "array",
+                "items": { "type": "object" }
+              },
+              "pagination": {
+                "type": "object",
+                "properties": {
+                  "page": { "type": "integer" },
+                  "limit": { "type": "integer" },
+                  "total": { "type": "integer" },
+                  "pages": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "DocumentResponse": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "data": { "type": "object" }
+        }
+      }
+    }
+  }
+}
