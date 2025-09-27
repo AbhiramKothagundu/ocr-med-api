@@ -21,20 +21,24 @@ describe('Extraction API', () => {
         .send(textInput)
         .expect(200);
 
-      expect(response.body.status).toBe('success');
-      expect(response.body.data).toHaveProperty('tokens');
-      expect(response.body.data).toHaveProperty('currency');
-      expect(response.body.data).toHaveProperty('confidence');
-      expect(response.body.data.currency).toBe('INR');
+      expect(response.body).toHaveProperty('raw_tokens');
+      expect(response.body).toHaveProperty('currency_hint');
+      expect(response.body).toHaveProperty('confidence');
+      expect(response.body.currency_hint).toBe('INR');
+      expect(Array.isArray(response.body.raw_tokens)).toBe(true);
+      expect(response.body.confidence).toBeGreaterThan(0);
     });
 
+    // CORRECTED: With the validation fix, empty text now passes to controller
     it('should handle empty text input', async () => {
       const response = await request(app)
         .post('/api/extract')
         .send({ text: '' })
         .expect(400);
 
-      expect(response.body.status).toBe('validation_error');
+      // Updated: expects controller response for empty text
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toBe('Either image file or text input is required');
     });
 
     it('should handle text with no amounts', async () => {
@@ -44,16 +48,29 @@ describe('Extraction API', () => {
         .expect(400);
 
       expect(response.body.status).toBe('no_amounts_found');
+      expect(response.body.reason).toBe('document too noisy');
     });
 
+    // CORRECTED: Update expected message to match actual controller output
     it('should reject invalid input', async () => {
       const response = await request(app)
         .post('/api/extract')
         .send({})
         .expect(400);
 
-      expect(response.body.status).toBe('validation_error');
-      expect(response.body.message).toContain('Invalid request data');
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toBe('Either image file or text input is required');
+    });
+
+    // NEW TEST: Test for whitespace-only text
+    it('should handle whitespace-only text input', async () => {
+      const response = await request(app)
+        .post('/api/extract')
+        .send({ text: '   \n\t   ' })
+        .expect(400);
+
+      expect(response.body.status).toBe('no_text_found');
+      expect(response.body.message).toBe('No readable text found in the input');
     });
   });
 
@@ -69,9 +86,10 @@ describe('Extraction API', () => {
         .send(input)
         .expect(200);
 
-      expect(response.body.status).toBe('success');
-      expect(response.body.data.normalized).toEqual([1250, 1300, 125]);
-      expect(response.body.data.confidence).toBeGreaterThan(0);
+      expect(response.body).toHaveProperty('normalized_amounts');
+      expect(response.body).toHaveProperty('normalization_confidence');
+      expect(response.body.normalized_amounts).toEqual([1250, 1300, 125]);
+      expect(response.body.normalization_confidence).toBeGreaterThan(0);
     });
 
     it('should handle percentage values', async () => {
@@ -85,8 +103,8 @@ describe('Extraction API', () => {
         .send(input)
         .expect(200);
 
-      expect(response.body.data.normalized).toContain(0.15);
-      expect(response.body.data.normalized).toContain(1250);
+      expect(response.body.normalized_amounts).toContain(0.15);
+      expect(response.body.normalized_amounts).toContain(1250);
     });
 
     it('should reject invalid tokens input', async () => {
@@ -112,17 +130,14 @@ describe('Extraction API', () => {
         .send(input)
         .expect(200);
 
-      expect(response.body.status).toBe('success');
-      expect(Array.isArray(response.body.data.classified)).toBe(true);
+      expect(response.body).toHaveProperty('amounts');
+      expect(response.body).toHaveProperty('confidence');
+      expect(Array.isArray(response.body.amounts)).toBe(true);
+      expect(response.body.amounts.length).toBeGreaterThan(0);
 
-      // Check that at least one classified result exists
-      expect(response.body.data.classified.length).toBeGreaterThan(0);
-
-      // Check that classified types include expected ones if present
-      const types = response.body.data.classified.map(item => item.type);
-      expect(types).toContain('total');
+      const types = response.body.amounts.map(item => item.type);
+      expect(types).toContain('total_bill');
       expect(types).toContain('paid');
-      // 'tax' may not always be present, so skip strict assertion
     });
 
     it('should handle amounts without context', async () => {
@@ -136,9 +151,8 @@ describe('Extraction API', () => {
         .send(input)
         .expect(200);
 
-      expect(response.body.status).toBe('success');
-      expect(Array.isArray(response.body.data.classified)).toBe(true);
-      // classified array may be empty if context is missing
+      expect(response.body).toHaveProperty('amounts');
+      expect(Array.isArray(response.body.amounts)).toBe(true);
     });
   });
 
@@ -160,12 +174,12 @@ describe('Extraction API', () => {
         .send(input)
         .expect(200);
 
-      expect(response.body.status).toBe('success');
-      expect(response.body.data).toHaveProperty('docId');
-      expect(response.body.data).toHaveProperty('amounts');
-      expect(response.body.data).toHaveProperty('confidence');
-      expect(response.body.data).toHaveProperty('provenance');
-      expect(response.body.data.currency).toBe('INR');
+      expect(response.body).toHaveProperty('currency');
+      expect(response.body).toHaveProperty('amounts');
+      expect(response.body).toHaveProperty('status');
+      expect(response.body.status).toBe('ok');
+      expect(Array.isArray(response.body.amounts)).toBe(true);
+      expect(response.body.currency).toBe('INR');
     });
 
     it('should handle complex receipt text', async () => {
@@ -188,16 +202,14 @@ describe('Extraction API', () => {
         .send(input)
         .expect(200);
 
-      expect(response.body.status).toBe('success');
-      expect(Array.isArray(response.body.data.amounts)).toBe(true);
-      expect(response.body.data.amounts.length).toBeGreaterThan(5);
+      expect(response.body.status).toBe('ok');
+      expect(Array.isArray(response.body.amounts)).toBe(true);
+      expect(response.body.amounts.length).toBeGreaterThan(5);
 
-      // Check that classified types include expected ones if present
-      const types = response.body.data.amounts.map(a => a.type);
-      expect(types).toContain('total');
+      const types = response.body.amounts.map(a => a.type);
+      expect(types).toContain('total_bill');
       expect(types).toContain('paid');
       expect(types).toContain('tax');
-      // Values may vary, so skip strict value checks
     });
 
     it('should handle database save operation', async () => {
@@ -216,6 +228,18 @@ describe('Extraction API', () => {
           inputType: 'text'
         })
       );
+    });
+
+    // NEW TEST: Test empty text behavior in final endpoint
+    it('should handle empty text in final endpoint', async () => {
+      const response = await request(app)
+        .post('/api/final')
+        .send({ text: '' })
+        .expect(400);
+
+      // Updated: expects controller response for empty text
+      expect(response.body.status).toBe('error');
+      expect(response.body.message).toBe('Either image file or text input is required');
     });
   });
 

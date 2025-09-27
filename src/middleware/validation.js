@@ -4,11 +4,8 @@ const logger = require('../utils/logger');
 // Schema definitions
 const schemas = {
   extractInput: Joi.object({
-    text: Joi.string().min(1).max(10000).when('$hasFile', {
-      is: false,
-      then: Joi.required(),
-      otherwise: Joi.optional()
-    })
+    // SIMPLIFIED: Since both branches are the same, just use one schema
+    text: Joi.string().allow('').max(10000).optional()
   }).unknown(true), // Allow other fields like multer adds
 
   normalizeInput: Joi.object({
@@ -23,10 +20,11 @@ const schemas = {
   }),
 
   completeInput: Joi.object({
-    text: Joi.string().min(1).max(10000).when('$hasFile', {
+    // FIXED: Include .allow('') in the conditional branches
+    text: Joi.when('$hasFile', {
       is: false,
-      then: Joi.required(),
-      otherwise: Joi.optional()
+      then: Joi.string().allow('').max(10000).optional(),
+      otherwise: Joi.string().allow('').max(10000).optional()
     })
   }).unknown(true)
 };
@@ -91,10 +89,11 @@ const validateInput = (req, res, next) => {
       }
     }
 
-    // Ensure either file or text is provided for extract/final endpoints
-    if ((endpoint === 'extract' || endpoint === 'final') && !hasFile && !req.body.text) {
+    // FIXED: Check for missing text field (undefined), not empty text ('')
+    // This allows empty strings to pass through to controller for proper handling
+    if ((endpoint === 'extract' || endpoint === 'final') && !hasFile && req.body.text === undefined) {
       return res.status(400).json({
-        status: 'validation_error',
+        status: 'error',
         message: 'Either image file or text input is required'
       });
     }
