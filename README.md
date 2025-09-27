@@ -6,7 +6,7 @@ Extract, normalize, and classify amounts from medical receipts using OCR and AI.
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/AbhiramKothagundu/ocr-med-api
+   git clone https://github.com/AbhiramKothagundu/ocr-med-api.git
    cd ocr_med_api
    ```
 
