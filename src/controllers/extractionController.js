@@ -182,6 +182,7 @@ class ExtractionController {
         docId,
         stage: 'complete',
         inputType,
+        rawText, // <-- Always save the actual rawText
         result: {
           currency,
           amounts: provenance,
@@ -190,7 +191,7 @@ class ExtractionController {
             source: inputType === 'image' ? 'OCR from uploaded image' : 'Direct text input',
             extractedTokens: tokens,
             normalizedAmounts: normalized,
-            rawText: inputType === 'text' ? rawText : '[Image content]'
+            rawText // <-- Always save the actual rawText
           }
         },
         confidence: overallConfidence,

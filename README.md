@@ -28,6 +28,47 @@ Extract, normalize, and classify amounts from medical receipts using OCR and AI.
    npm start
    ```
 
+## Running Locally
+
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+2. **Configure environment:**
+   - Copy `.env.example` to `.env` and update as needed.
+
+3. **Start MongoDB (if not running):**
+   ```bash
+   mongod
+   ```
+
+4. **Start the server:**
+   ```bash
+   npm start
+   ```
+   The API will run on `http://localhost:3000`.
+
+## Expose Local Server with ngrok
+
+1. **Install ngrok:**
+   - Download from [ngrok.com](https://ngrok.com/download) or install via npm:
+     ```bash
+     npm install -g ngrok
+     ```
+
+2. **Expose your local API:**
+   ```bash
+   ngrok http 3000
+   ```
+   - You will get a public URL (e.g., `https://abcd1234.ngrok.io`) that forwards to your local server.
+
+3. **Test your endpoints:**
+   - Use the ngrok URL in Postman/curl:
+     ```
+     curl -X POST https://abcd1234.ngrok.io/api/extract -H "Content-Type: application/json" -d '{"text":"Total: Rs. 1,250.00"}'
+     ```
+
 ## Architecture Overview
 
 - **Express.js**: Main API server.
